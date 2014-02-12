@@ -601,6 +601,23 @@ def st_list(parser, args, thread_manager):
         else:
             thread_manager.error('Container %r not found', args[0])
 
+st_copy_options = 'container object destcontainer destobject'
+
+st_copy_help = ''
+
+
+def st_copy(parser, args, thread_manager):
+    (options, args) = parse_args(parser, args)
+    args = args[1:]
+    if len(args) != 4:
+        thread_manager.error('Usage: %s copy %s\n%s', basename(argv[0]),
+                             st_copy_options, st_copy_help)
+        return
+
+    conn = get_conn(options)
+    conn.copy_object(*args)
+
+
 st_stat_options = '''[--lh]
                   [container] [object]
 '''
@@ -1260,6 +1277,7 @@ Command-line interface to the OpenStack Swift API.
 
 Positional arguments:
   <subcommand>
+    copy                 Copy an object to a new object
     delete               Delete a container or objects within a container
     download             Download objects from containers
     list                 Lists the containers for the account or the objects
@@ -1406,7 +1424,7 @@ Examples:
     (options, args) = parse_args(parser, argv[1:], enforce_requires=False)
     parser.enable_interspersed_args()
 
-    commands = ('delete', 'download', 'list', 'post',
+    commands = ('delete', 'download', 'list', 'post', 'copy',
                 'stat', 'upload', 'capabilities')
     if not args or args[0] not in commands:
         parser.print_usage()

@@ -786,6 +786,48 @@ def get_object(url, token, container, name, http_conn=None,
     return parsed_response['headers'], object_body
 
 
+def copy_object(url, token, container, name, destcontainer, destname,
+                http_conn=None):
+    """
+    copy object
+
+    :param url: storage URL
+    :param token: auth token
+    :param container: container name that the object is in
+    :param name: object name to get info for
+    :param destcontainer: container name that the object will be in
+    :param destname: object name for new object
+    :param http_conn: HTTP connection object (If None, it will create the
+                      conn object)
+    :returns: a dict containing the response's headers (all header names will
+              be lowercase)
+    :raises ClientException: HTTP HEAD request failed
+    """
+    if http_conn:
+        parsed, conn = http_conn
+    else:
+        parsed, conn = http_connection(url)
+    path = '%s/%s/%s' % (parsed.path, quote(container), quote(name))
+    method = 'COPY'
+    headers = {'X-Auth-Token': token,
+               'Destination': '/%s/%s' % (destcontainer, destname)}
+    conn.request(method, path, '', headers)
+    resp = conn.getresponse()
+    body = resp.read()
+    http_log(('%s%s' % (url.replace(parsed.path, ''), path), method,),
+             {'headers': headers}, resp, body)
+    if resp.status < 200 or resp.status >= 300:
+        raise ClientException('Object HEAD failed', http_scheme=parsed.scheme,
+                              http_host=conn.host, http_port=conn.port,
+                              http_path=path, http_status=resp.status,
+                              http_reason=resp.reason,
+                              http_response_content=body)
+    resp_headers = {}
+    for header, value in resp.getheaders():
+        resp_headers[header.lower()] = value
+    return resp_headers
+
+
 def head_object(url, token, container, name, http_conn=None):
     """
     Get object info
@@ -1249,6 +1291,10 @@ class Connection(object):
     def head_object(self, container, obj):
         """Wrapper for :func:`head_object`"""
         return self._retry(None, head_object, container, obj)
+
+    def copy_object(self, container, obj, destcontainer, destobj):
+        """Wrapper for :func:`copy_object`"""
+        return self._retry(None, copy_object, container, obj, destcontainer, destobj)
 
     def get_object(self, container, obj, resp_chunk_size=None,
                    query_string=None, response_dict=None, headers=None):
